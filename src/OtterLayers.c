@@ -177,35 +177,48 @@ void ON_compile_Dense_layer(Otterchain* current_chain) { // faut gérer les conn
 
 
 
-void ON_Dense_layer_forward(Otternetwork* net,Otterchain* chain) {
-    
+void ON_Dense_layer_forward(Otternetwork* net, Otterchain* chain) {
     OtterTensor* input = NULL;
-    if (chain->num_connections_backward == 0) {
-        input = OT_copy(net->input[chain->idx_input]); // If no previous layer, use the network input
 
-    } else{
+    // Check backward connections or use network input
+    if (chain->num_connections_backward == 0) {
+        if (!net->input || !net->input[chain->idx_input]) {
+            fprintf(stderr, "Error: Network input is NULL for Dense layer.\n");
+            exit(EXIT_FAILURE);
+        }
+        input = OT_copy(net->input[chain->idx_input]);
+    } else {
+        if (!chain->connections_backward[0] || !chain->connections_backward[0]->post_activations) {
+            fprintf(stderr, "Error: Backward connection or post_activations is NULL for Dense layer.\n");
+            exit(EXIT_FAILURE);
+        }
         input = OT_copy(chain->connections_backward[0]->post_activations);
     }
 
     if (!input) {
-        fprintf(stderr, "Error: Dense layer received NULL input tensor.\n");
+        fprintf(stderr, "Error: Dense layer received NULL input tensor after OT_copy.\n");
         exit(EXIT_FAILURE);
     }
 
     free_malloc_tensor(&chain->input[0]);
     chain->input[0] = input;
-    
 
     OtterTensor* prod = OT_Matrix_multiply(chain->weights[0], input);
+    if (!prod) {
+        fprintf(stderr, "Error: OT_Matrix_multiply returned NULL in Dense layer.\n");
+        exit(EXIT_FAILURE);
+    }
+
     CHECK_NAN_TENSOR(prod, "OT_Matrix_multiply layer X");
     OT_ref_tensors_sum(prod, chain->biases[0], "OT_Matrix_multiply layer 1X");
     CHECK_NAN_TENSOR(prod, "OT_Matrix_multiply layer 2X");
     Activation_functions(((Dense_layer*)chain->layer)->activation_function, prod);
     CHECK_NAN_TENSOR(prod, "OT_Matrix_multiply layer 3X");
 
-     
-    if (chain->post_activations) free_malloc_tensor(&chain->post_activations);
-    chain->post_activations =prod;
+    if (chain->post_activations) {
+        free_malloc_tensor(&chain->post_activations);
+    }
+    chain->post_activations = prod;
 
     return;
 }

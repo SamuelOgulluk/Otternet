@@ -29,4 +29,5 @@ OtterTensor* OT_line_sum(OtterTensor* t);
 void OT_ref_reset(OtterTensor* t);
 float OT_sum(OtterTensor* t);
 void OT_ref_sqrt(OtterTensor* t);
+void OT_ref_copy(OtterTensor* dest, OtterTensor* src) ;
 #endif

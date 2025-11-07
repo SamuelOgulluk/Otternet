@@ -141,6 +141,7 @@ void OT_ref_dot_divide(OtterTensor* dividend, OtterTensor* divisor) {
     return;
 }
 
+
 OtterTensor* OT_dot_divide(OtterTensor* main, OtterTensor* divisor) {
     OtterTensor* result = OT_zeros(main->dims, main->rank);
     OT_ref_dot_divide(result, divisor);
@@ -308,6 +309,17 @@ void OT_ref_sqrt(OtterTensor* t) {
 void OT_ref_reset(OtterTensor* t) {
     for (int i = 0; i < t->size; i++) {
         t->data[i] = 0.0f;
+    }
+    return;
+}
+
+void OT_ref_copy(OtterTensor* dest, OtterTensor* src) {
+    if (dest->size != src->size || dest->rank != src->rank) {
+        fprintf(stderr, "Error: Tensor sizes or ranks do not match for copy operation.\n");
+        exit(EXIT_FAILURE);
+    }
+    for (int i = 0; i < dest->size; i++) {
+        dest->data[i] = src->data[i];
     }
     return;
 }

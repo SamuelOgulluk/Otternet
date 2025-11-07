@@ -448,7 +448,9 @@ void ON_reset_layer(Otterchain* chain) {
         free_malloc_tensor(&chain->local_errors);
     }
     if (chain->input) {
-        free_malloc_tensor(&chain->input[0]);
+        for(int i=0;i<chain->num_connections_backward;i++){
+            free_malloc_tensor(&chain->input[i]);
+        }
 
     }
 }

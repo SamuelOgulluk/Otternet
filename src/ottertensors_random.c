@@ -6,7 +6,11 @@ OtterTensor* OT_random_uniform(int* dims, int rank, float min, float max) {
     set_dims(tensor, dims, rank);
     tensor->data = malloc(tensor->size * sizeof(float));
     static int seeded = 0;
-    if (!seeded) { srand((unsigned int)time(NULL)); seeded = 1; }
+    if (!seeded) { 
+        //srand((unsigned int)time(NULL)); 
+        srand(42); // Pour des résultats reproductibles pendant les tests
+        seeded = 1; 
+    }
     for (int i = 0; i < tensor->size; i++) {
         tensor->data[i] = min + (float)rand() / (float)(RAND_MAX / (max - min));
     }

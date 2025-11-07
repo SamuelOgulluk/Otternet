@@ -1,9 +1,53 @@
 #include "../header/otternet_optimizers.h"
 
 
+OtterTensor**** ON_init_clone_weights(Otternetwork* network) {
+    OtterTensor*** accum_weights = calloc(network->num_layers, sizeof(OtterTensor**));
+    OtterTensor*** accum_biases  = calloc(network->num_layers, sizeof(OtterTensor**));
+    for (int l = 0; l < network->num_layers; l++) {
+        int depth = network->order[l]->weights_depth;
+        accum_weights[l] = calloc(depth, sizeof(OtterTensor*));
+        accum_biases[l]  = calloc(depth, sizeof(OtterTensor*));
+        for (int k = 0; k < depth; k++) {
+            /* on clone la forme des poids/bias afin d'initialiser à zéro */
+            accum_weights[l][k] = OT_zeros(network->order[l]->weights[k]->dims, network->order[l]->weights[k]->rank);
+            accum_biases[l][k]  = OT_zeros(network->order[l]->biases[k]->dims, network->order[l]->biases[k]->rank);
+            
+        }
+    }
+    OtterTensor**** result = malloc(2 * sizeof(OtterTensor***));
+    result[0] = accum_weights;
+    result[1] = accum_biases;
+    return result;
+}
+
+void ON_reset_clone_weight(Otternetwork* net, OtterTensor*** accu){
+    for(int i=0;i<net->num_layers;i++){
+        for(int j=0;j<net->order[i]->weights_depth;j++){
+            OT_ref_reset(accu[i][j]);
+        }
+    }
+}
+
+void free_clone_weights(Otternetwork* network, OtterTensor*** accu) {
+    for (int l = 0; l < network->num_layers; l++) {
+        int depth = network->order[l]->weights_depth;
+        for (int k = 0; k < depth; k++) {
+            free_malloc_tensor(&accu[l][k]);
+        }
+        free(accu[l]);
+        accu[l] = NULL;
+    }
+    free(accu);
+    accu = NULL;
+}
 
 
 void ON_SGD_fit(Otternetwork* network, OtterDataset* inputs, OtterDataset* labels, int epochs, int batch_size) {
+    OtterTensor**** accumulators = ON_init_clone_weights(network);
+    OtterTensor*** accum_weights = accumulators[0];
+    OtterTensor*** accum_biases  = accumulators[1];
+    float inv_batch_size = 1.0f / (float)batch_size;
     int step = epochs / 9;
     for (int epoch = 0; epoch < epochs; epoch++) {
         int* indices = OR_select_batch(inputs->size[0], batch_size);
@@ -29,14 +73,38 @@ void ON_SGD_fit(Otternetwork* network, OtterDataset* inputs, OtterDataset* label
                 }
             }
 
-            ON_update_weights_and_biases(network);
+            for (int l = 0; l < network->num_layers; l++) {
+                for (int k = 0; k < network->order[l]->weights_depth; k++) {
+                    OT_ref_tensors_sum(accum_weights[l][k], network->order[l]->weights_gradients[k], "ON_SGD_fit1");
+                    OT_ref_tensors_sum(accum_biases[l][k], network->order[l]->biases_gradients[k], "ON_SGD_fit2");
+                }
+            }
 
+            
             free(input_arr);
             free(label_arr);
         }
+        for(int l=0;l<network->num_layers;l++){
+            for(int k=0;k<network->order[l]->weights_depth;k++){
+                OT_ref_copy(network->order[l]->weights_gradients[k], accum_weights[l][k]);
+                OT_ref_copy(network->order[l]->biases_gradients[k], accum_biases[l][k]);
+                OT_ref_scalar_multiply(network->order[l]->weights_gradients[k], inv_batch_size);
+                OT_ref_scalar_multiply(network->order[l]->biases_gradients[k], inv_batch_size);
+                OT_ref_reset(accum_weights[l][k]);
+                OT_ref_reset(accum_biases[l][k]);
+
+            }
+        }
+        
+        ON_update_weights_and_biases(network);
+
             if (epoch %step==0 ||epoch==epochs) {ON_verbose1(epoch, network, inputs, labels, indices,batch_size);}
         free(indices);
     }
+    free_clone_weights(network, accum_weights);
+    free_clone_weights(network, accum_biases);
+    free(accumulators);
+    accumulators = NULL;
 }
 
 
@@ -99,11 +167,21 @@ void ON_verbose1(int epoch, Otternetwork* network, OtterDataset* inputs, OtterDa
 
 
 void ON_SGDM_fit(Otternetwork* network, OtterDataset* inputs, OtterDataset* labels, int epochs, int batch_size) {
+    OtterTensor**** accumulators = ON_init_clone_weights(network);
+    OtterTensor*** accum_weights = accumulators[0];
+    OtterTensor*** accum_biases  = accumulators[1];
+
+    float inv_batch_size = 1.0f / (float)batch_size;
+    float coef = -network->learning_rate*inv_batch_size;
     float momentum_coeff = network->optimizer_params[0]; 
     int step = epochs / 9;
     Momentums* momentums = init_first_Momentums(network);
 
     for (int epoch = 0; epoch < epochs; epoch++) {
+        if(epoch % 500==0 && epoch!=0){
+            network->learning_rate*=0.9f;
+            coef = -network->learning_rate*inv_batch_size;
+        }
         int* indices = OR_select_batch(inputs->size[0], batch_size);
 
         for (int i = 0; i < batch_size; i++) {
@@ -121,37 +199,46 @@ void ON_SGDM_fit(Otternetwork* network, OtterDataset* inputs, OtterDataset* labe
 
             for (int l = 0; l < network->num_layers; l++) {
                 for (int k = 0; k < network->order[l]->weights_depth; k++) {
-                    
-                    OT_ref_scalar_multiply(network->order[l]->weights_gradients[k], -network->learning_rate);
-                    OT_ref_scalar_multiply(network->order[l]->biases_gradients[k], -network->learning_rate);
-                    
-                    // Update momentums
-                    OT_ref_scalar_multiply(momentums[l].first_moment_weights[k], momentum_coeff);
-                    OT_ref_scalar_multiply(momentums[l].first_moment_biases[k], momentum_coeff);
-                    
-                    OT_ref_tensors_sum(momentums[l].first_moment_weights[k], network->order[l]->weights_gradients[k], "ON_SGDM_fit1");
-                    OT_ref_tensors_sum(momentums[l].first_moment_biases[k], network->order[l]->biases_gradients[k], "ON_SGDM_fit2");
-
-                    // Update weights and biases using momentums
-                    free_malloc_tensor(&network->order[l]->weights_gradients[k]);
-                    free_malloc_tensor(&network->order[l]->biases_gradients[k]);
-                    network->order[l]->weights_gradients[k] = OT_copy(momentums[l].first_moment_weights[k]);
-                    network->order[l]->biases_gradients[k] = OT_copy(momentums[l].first_moment_biases[k]);
-
+                    OT_ref_tensors_sum(accum_weights[l][k], network->order[l]->weights_gradients[k], "ON_SGD_fit1");
+                    OT_ref_tensors_sum(accum_biases[l][k], network->order[l]->biases_gradients[k], "ON_SGD_fit2");
                 }
             }
 
-            ON_update_weights_and_biases(network);
-
+            
             free(input_arr);
             input_arr = NULL;
             free(label_arr);
             label_arr = NULL;
         }
-            if  (epoch %step==0 ||epoch==epochs)  {ON_verbose1(epoch, network, inputs, labels, indices,batch_size);}
+        for(int l=0;l<network->num_layers;l++){
+            for(int k=0;k<network->order[l]->weights_depth;k++){
+                OT_ref_scalar_multiply(accum_weights[l][k], coef);
+                OT_ref_scalar_multiply(accum_biases[l][k], coef);
+                    
+                OT_ref_scalar_multiply(momentums[l].first_moment_weights[k], momentum_coeff);
+                OT_ref_scalar_multiply(momentums[l].first_moment_biases[k], momentum_coeff);
+                
+                OT_ref_tensors_sum(momentums[l].first_moment_weights[k], accum_weights[l][k], "ON_SGDM_fit1");
+                OT_ref_tensors_sum(momentums[l].first_moment_biases[k], accum_biases[l][k], "ON_SGDM_fit2");
+
+                OT_ref_copy(network->order[l]->weights_gradients[k], momentums[l].first_moment_weights[k]);
+                OT_ref_copy(network->order[l]->biases_gradients[k], momentums[l].first_moment_biases[k]);
+                
+                OT_ref_reset(accum_weights[l][k]);
+                OT_ref_reset(accum_biases[l][k]);
+
+            }
+        }
+        ON_update_weights_and_biases(network);
+        if  (epoch %step==0 ||epoch==epochs)  {ON_verbose1(epoch, network, inputs, labels, indices,batch_size);}
         free(indices);
+        indices = NULL;
     }
     free_first_momentums(network,momentums);
+    free_clone_weights(network, accum_weights);
+    free_clone_weights(network, accum_biases);
+    free(accumulators);
+    accumulators = NULL;
 }
 //--------------------------------------------------------------------------------------------------------------------------------------------------
 
