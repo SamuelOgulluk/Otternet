@@ -59,6 +59,10 @@ OtterTensor* OT_copy(OtterTensor* a){
 
 OtterTensor** OT_copy_list(OtterTensor** a,int n){
     OtterTensor** result = malloc(n * sizeof(OtterTensor*));
+    if (result == NULL) {
+        fprintf(stderr, "Failed to allocate memory for tensor list\n");
+        exit(EXIT_FAILURE);
+    }
     for(int i=0;i<n;i++){
         result[i] = OT_copy(a[i]);
     }
@@ -96,15 +100,37 @@ OtterTensor* OT_Flatten(OtterTensor* t) {
 
 OtterTensor* OT_zeros(int* dims, int rank){
     OtterTensor* tensor = malloc(sizeof(OtterTensor));
+    if (tensor == NULL) {
+        fprintf(stderr, "Failed to allocate memory for tensor\n");
+        exit(EXIT_FAILURE);
+    }
     set_dims(tensor, dims, rank);
     tensor->data = calloc(tensor->size, sizeof(float));
+    if (tensor->data == NULL) {
+        fprintf(stderr, "Failed to allocate memory for tensor data\n");
+        free(tensor->dims);
+        free(tensor->strides);
+        free(tensor);
+        exit(EXIT_FAILURE);
+    }
     return tensor;
 }
 
 OtterTensor* OT_ones(int* dims, int rank){
     OtterTensor* tensor = malloc(sizeof(OtterTensor));
+    if (tensor == NULL) {
+        fprintf(stderr, "Failed to allocate memory for tensor\n");
+        exit(EXIT_FAILURE);
+    }
     set_dims(tensor, dims, rank);
     tensor->data = malloc(tensor->size * sizeof(float));
+    if (tensor->data == NULL) {
+        fprintf(stderr, "Failed to allocate memory for tensor data\n");
+        free(tensor->dims);
+        free(tensor->strides);
+        free(tensor);
+        exit(EXIT_FAILURE);
+    }
     for(int i = 0; i < tensor->size; i++) {
         tensor->data[i] = 1.0f;
     }
@@ -113,6 +139,10 @@ OtterTensor* OT_ones(int* dims, int rank){
 
 OtterTensor*** OT_tensor_duplicate(OtterTensor** tensors, int size_tensor, int n) {
     OtterTensor*** result = malloc(n * sizeof(OtterTensor**));
+    if (result == NULL) {
+        fprintf(stderr, "Failed to allocate memory for tensor duplicate\n");
+        exit(EXIT_FAILURE);
+    }
     for (int i = 0; i < n; i++) {
         result[i] = OT_copy_list(tensors,size_tensor);
     }
@@ -122,6 +152,10 @@ OtterTensor*** OT_tensor_duplicate(OtterTensor** tensors, int size_tensor, int n
 
 Otterlist* OT_otterlist(OtterTensor** tensor_list, int size) {
     Otterlist* list = malloc(sizeof(Otterlist));
+    if (list == NULL) {
+        fprintf(stderr, "Failed to allocate memory for otterlist\n");
+        exit(EXIT_FAILURE);
+    }
     list->dataset = OT_copy_list(tensor_list, size);
     list->size = size;
     return list;
@@ -129,7 +163,16 @@ Otterlist* OT_otterlist(OtterTensor** tensor_list, int size) {
 
 Otterlist* OT_init_otterlist(int size) {
     Otterlist* list = malloc(sizeof(Otterlist));
+    if (list == NULL) {
+        fprintf(stderr, "Failed to allocate memory for otterlist\n");
+        exit(EXIT_FAILURE);
+    }
     list->dataset = calloc(size, sizeof(OtterTensor*));
+    if (list->dataset == NULL) {
+        fprintf(stderr, "Failed to allocate memory for otterlist dataset\n");
+        free(list);
+        exit(EXIT_FAILURE);
+    }
     list->size = size;
     return list;
 }

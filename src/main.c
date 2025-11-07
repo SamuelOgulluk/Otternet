@@ -28,6 +28,11 @@ OtterTensor** create_data(){
     print_tensor(fake_input, 3);
 
     OtterTensor** input_array = malloc(sizeof(OtterTensor*));
+    if (input_array == NULL) {
+        fprintf(stderr, "Failed to allocate memory for input_array\n");
+        free_malloc_tensor(&fake_input);
+        exit(EXIT_FAILURE);
+    }
     input_array[0] = fake_input;
     return input_array;
 }
@@ -42,8 +47,23 @@ OtterDataset** create_data2(int full_size){
 
 
     OtterTensor** fake_inputs_list = calloc(full_size,sizeof(OtterTensor*));
+    if (fake_inputs_list == NULL) {
+        fprintf(stderr, "Failed to allocate memory for fake_inputs_list\n");
+        exit(EXIT_FAILURE);
+    }
     OtterTensor** fake_targets_list0 = calloc(full_size,sizeof(OtterTensor*));
+    if (fake_targets_list0 == NULL) {
+        fprintf(stderr, "Failed to allocate memory for fake_targets_list0\n");
+        free(fake_inputs_list);
+        exit(EXIT_FAILURE);
+    }
     OtterTensor** fake_targets_list1 = calloc(full_size,sizeof(OtterTensor*));
+    if (fake_targets_list1 == NULL) {
+        fprintf(stderr, "Failed to allocate memory for fake_targets_list1\n");
+        free(fake_inputs_list);
+        free(fake_targets_list0);
+        exit(EXIT_FAILURE);
+    }
 
     for (int i = 0; i < full_size; i++) {
         fake_inputs_list[i] = OT_random_uniform(input_dims, 2,-1.0f, 1.0f);
@@ -55,8 +75,28 @@ OtterDataset** create_data2(int full_size){
 
 
     OtterTensor*** labels = malloc(full_size * sizeof(OtterTensor**));
+    if (labels == NULL) {
+        fprintf(stderr, "Failed to allocate memory for labels\n");
+        // Free previously allocated memory
+        free(fake_inputs_list);
+        free(fake_targets_list0);
+        free(fake_targets_list1);
+        exit(EXIT_FAILURE);
+    }
     for (int i = 0; i < full_size; i++) {
         labels[i] = malloc(2 * sizeof(OtterTensor*));
+        if (labels[i] == NULL) {
+            // Handle memory allocation failure
+            // Free previously allocated memory
+            for (int j = 0; j < i; j++) {
+                free(labels[j]);
+            }
+            free(labels);
+            free(fake_inputs_list);
+            free(fake_targets_list0);
+            free(fake_targets_list1);
+            exit(EXIT_FAILURE);
+        }
         labels[i][0] = fake_targets_list0[i];
         labels[i][1] = fake_targets_list1[i];
     }
@@ -64,8 +104,36 @@ OtterDataset** create_data2(int full_size){
     // forme : labels(full_size, 2, ...)
 
     OtterTensor*** inputs = malloc(full_size * sizeof(OtterTensor**));
+    if (inputs == NULL) {
+        fprintf(stderr, "Failed to allocate memory for inputs\n");
+        // Free previously allocated memory
+        for (int i = 0; i < full_size; i++) {
+            free(labels[i]);
+        }
+        free(labels);
+        free(fake_inputs_list);
+        free(fake_targets_list0);
+        free(fake_targets_list1);
+        exit(EXIT_FAILURE);
+    }
     for (int i = 0; i < full_size; i++) {
         inputs[i] = malloc(1 * sizeof(OtterTensor*));
+        if (inputs[i] == NULL) {
+            // Handle memory allocation failure
+            // Free previously allocated memory
+            for (int j = 0; j < i; j++) {
+                free(inputs[j]);
+            }
+            free(inputs);
+            for (int j = 0; j < full_size; j++) {
+                free(labels[j]);
+            }
+            free(labels);
+            free(fake_inputs_list);
+            free(fake_targets_list0);
+            free(fake_targets_list1);
+            exit(EXIT_FAILURE);
+        }
         inputs[i][0] = fake_inputs_list[i];
     }
 
@@ -84,6 +152,12 @@ OtterDataset** create_data2(int full_size){
 
 
     OtterDataset** datasets = malloc(2 * sizeof(OtterDataset*));
+    if (datasets == NULL) {
+        fprintf(stderr, "Failed to allocate memory for datasets\n");
+        OD_free_dataset(fake_inputs);
+        OD_free_dataset(fake_targets);
+        exit(EXIT_FAILURE);
+    }
     datasets[0] = fake_inputs;
     datasets[1] = fake_targets;
 
@@ -176,11 +250,41 @@ OtterDataset** create_toy_dataset(int full_size) {
     int target_dims[2] = {1, 1};
 
     OtterTensor*** inputs = malloc(full_size * sizeof(OtterTensor**));
+    if (inputs == NULL) {
+        fprintf(stderr, "Failed to allocate memory for inputs\n");
+        exit(EXIT_FAILURE);
+    }
     OtterTensor*** labels = malloc(full_size * sizeof(OtterTensor**));
+    if (labels == NULL) {
+        fprintf(stderr, "Failed to allocate memory for labels\n");
+        free(inputs);
+        exit(EXIT_FAILURE);
+    }
 
     for (int i = 0; i < full_size; i++) {
         inputs[i] = malloc(1 * sizeof(OtterTensor*));
+        if (inputs[i] == NULL) {
+            // Handle memory allocation failure
+            // Free previously allocated memory
+            for (int j = 0; j < i; j++) {
+                free(inputs[j]);
+            }
+            free(inputs);
+            free(labels);
+            exit(EXIT_FAILURE);
+        }
         labels[i] = malloc(1 * sizeof(OtterTensor*));
+        if (labels[i] == NULL) {
+            // Handle memory allocation failure
+            // Free previously allocated memory
+            for (int j = 0; j < i; j++) {
+                free(labels[j]);
+            }
+            free(labels);
+            free(inputs[i]);
+            free(inputs);
+            exit(EXIT_FAILURE);
+        }
 
         OtterTensor* x = OT_zeros(input_dims, 2);
         x->data[0] = ((float)rand() / RAND_MAX) * 2.0f - 1.0f; // [-1,1]
@@ -197,6 +301,12 @@ OtterDataset** create_toy_dataset(int full_size) {
     OtterDataset* label_ds = Init_dataset(labels, 1, full_size);
 
     OtterDataset** datasets = malloc(2 * sizeof(OtterDataset*));
+    if (datasets == NULL) {
+        fprintf(stderr, "Failed to allocate memory for datasets\n");
+        OD_free_dataset(input_ds);
+        OD_free_dataset(label_ds);
+        exit(EXIT_FAILURE);
+    }
     datasets[0] = input_ds;
     datasets[1] = label_ds;
     return datasets;

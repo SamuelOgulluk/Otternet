@@ -16,16 +16,37 @@ const char* LAYER_TYPE[] = {
     "Transformer",
     "Attention",
     "Embedding",
-
 };
 
 Otterchain* ON_Dense_layer(int neurons, char* activation_function,Otterchain* previous_layer,int number_of_previous_layers,int input_size) {
     Otterchain* chain = malloc(sizeof(Otterchain));
+    if (chain == NULL) {
+        fprintf(stderr, "Failed to allocate memory for chain\n");
+        exit(EXIT_FAILURE);
+    }
     memset(chain, 0, sizeof(Otterchain));
     Dense_layer* layer = malloc(sizeof(Dense_layer));
+    if (layer == NULL) {
+        fprintf(stderr, "Failed to allocate memory for dense layer\n");
+        free(chain);
+        exit(EXIT_FAILURE);
+    }
     memset(layer, 0, sizeof(Dense_layer));
     chain->weights = malloc(sizeof(OtterTensor*));
+    if (chain->weights == NULL) {
+        fprintf(stderr, "Failed to allocate memory for weights\n");
+        free(layer);
+        free(chain);
+        exit(EXIT_FAILURE);
+    }
     chain->biases = malloc(sizeof(OtterTensor*));
+    if (chain->biases == NULL) {
+        fprintf(stderr, "Failed to allocate memory for biases\n");
+        free(chain->weights);
+        free(layer);
+        free(chain);
+        exit(EXIT_FAILURE);
+    }
     chain->weights_depth = 1;
     chain->layer = layer;
     layer->num_neurons = neurons;
@@ -35,6 +56,15 @@ Otterchain* ON_Dense_layer(int neurons, char* activation_function,Otterchain* pr
         chain->connections_backward = NULL;
     } else{
         chain->connections_backward = malloc(sizeof(Otterchain*));
+        if (chain->connections_backward == NULL) {
+            fprintf(stderr, "Failed to allocate memory for backward connections\n");
+            free(chain->biases);
+            free(chain->weights);
+            free(layer->activation_function);
+            free(layer);
+            free(chain);
+            exit(EXIT_FAILURE);
+        }
         chain->num_connections_backward = 1;
         chain->connections_backward[0] = previous_layer;
     }
@@ -44,6 +74,17 @@ Otterchain* ON_Dense_layer(int neurons, char* activation_function,Otterchain* pr
     chain->input = NULL;
     if(input_size!=0){
         chain->input_dims = malloc(2 * sizeof(int));
+        if (chain->input_dims == NULL) {
+            fprintf(stderr, "Failed to allocate memory for input dimensions\n");
+            // Free previously allocated memory
+            if (chain->connections_backward) free(chain->connections_backward);
+            free(chain->biases);
+            free(chain->weights);
+            free(layer->activation_function);
+            free(layer);
+            free(chain);
+            exit(EXIT_FAILURE);
+        }
         chain->input_dims[0] = input_size;
         chain->input_dims[1] = 1;
     } else {
@@ -52,7 +93,7 @@ Otterchain* ON_Dense_layer(int neurons, char* activation_function,Otterchain* pr
     chain->output_dims = NULL;
     chain->local_errors = NULL;
     chain->post_activations = NULL;
-    chain->type = 0; 
+    chain->type = LAYER_DENSE; 
 
     return chain;
 }
@@ -77,10 +118,10 @@ void ON_compile_Dense_layer(Otterchain* current_chain) { // faut gérer les conn
         else{
             input_dims = current_chain->input_dims[0]; // If no previous layer, use the defined shape
         }
-    } else if (previous_layer[0]->type == 0) {
+    } else if (previous_layer[0]->type == LAYER_DENSE) {
         input_dims = ((Dense_layer*)previous_layer[0]->layer)->num_neurons; // Dense layer
         
-    } else if (previous_layer[0]->type == 2) {
+    } else if (previous_layer[0]->type == LAYER_FLATTEN) {
         input_dims = ((Flatten_layer*)previous_layer[0]->layer)->output_size; // Flatten layer
     } else {
         fprintf(stderr, "Unknown layer type for Dense layer compilation.\n");
@@ -95,22 +136,42 @@ void ON_compile_Dense_layer(Otterchain* current_chain) { // faut gérer les conn
 
     if(!current_chain->input_dims){
         current_chain->input_dims = malloc(2 * sizeof(int));
+        if (current_chain->input_dims == NULL) {
+            fprintf(stderr, "Failed to allocate memory for input dimensions\n");
+            exit(EXIT_FAILURE);
+        }
         current_chain->input_dims[0] = input_dims;
         current_chain->input_dims[1] = 1;
         
     }
     current_chain->output_dims = malloc(2 * sizeof(int));
+    if (current_chain->output_dims == NULL) {
+        fprintf(stderr, "Failed to allocate memory for output dimensions\n");
+        exit(EXIT_FAILURE);
+    }
     current_chain->output_dims[0] = ((Dense_layer*)current_chain->layer)->num_neurons;
     current_chain->output_dims[1] = 1;
     
     current_chain->weights_depth= 1;
 
     current_chain->weights_gradients = calloc(1,sizeof(OtterTensor*));
+    if (current_chain->weights_gradients == NULL) {
+        fprintf(stderr, "Failed to allocate memory for weight gradients\n");
+        exit(EXIT_FAILURE);
+    }
     current_chain->biases_gradients = calloc(1,sizeof(OtterTensor*));
+    if (current_chain->biases_gradients == NULL) {
+        fprintf(stderr, "Failed to allocate memory for bias gradients\n");
+        exit(EXIT_FAILURE);
+    }
     current_chain->weights_gradients[0] = OT_zeros(dims_w, 2);
     current_chain->biases_gradients[0] = OT_zeros(dims_b, 2);
 
     current_chain->input = calloc(1,sizeof(OtterTensor*));
+    if (current_chain->input == NULL) {
+        fprintf(stderr, "Failed to allocate memory for input tensor\n");
+        exit(EXIT_FAILURE);
+    }
     current_chain->post_activations = NULL;
 }
 
@@ -255,16 +316,31 @@ void ON_free_Dense_layer(Dense_layer* layer) {
 
 Otterchain* ON_Conv1D_layer(int kernet_size,int filter, int stride, int padding, int neurons, char* activation_function) {
     Otterchain* chain = malloc(sizeof(Otterchain));
+    if (chain == NULL) {
+        fprintf(stderr, "Failed to allocate memory for chain\n");
+        exit(EXIT_FAILURE);
+    }
     Conv1D_layer* layer = malloc(sizeof(Conv1D_layer));
+    if (layer == NULL) {
+        fprintf(stderr, "Failed to allocate memory for Conv1D layer\n");
+        free(chain);
+        exit(EXIT_FAILURE);
+    }
     layer->filter = filter;
     layer->kernel_size = kernet_size;
     layer->stride = stride;
     layer->padding = padding;
     chain->weights = malloc(filter * sizeof(OtterTensor*));
+    if (chain->weights == NULL) {
+        fprintf(stderr, "Failed to allocate memory for weights\n");
+        free(layer);
+        free(chain);
+        exit(EXIT_FAILURE);
+    }
     chain->biases = NULL;
     layer->num_neurons = neurons;
     layer->activation_function = strdup(activation_function);
-    chain->type = 1; 
+    chain->type = LAYER_CONV1D; 
     chain->layer = layer;
     return chain;
 }
@@ -319,24 +395,24 @@ void free_Conv1D_layer(Conv1D_layer* layer) {
 
 
 /////////////////////////////////////////////////
+*/
 
 
-
+/*
 Flatten_layer* ON_Flatten_layer(int neurons, char* activation_function) {
     Flatten_layer* layer = malloc(sizeof(ON_Flatten_layer));
-    layer->type = 2; 
     return layer;
 }
 
 void ON_compile_Flatten_layer(Otterchain* layer) {
     switch(layer->connections[0]->type) {
-        case 0: // Dense layer
+        case LAYER_DENSE: // Dense layer
             ((Flatten_layer*)layer->layer)->output_size = ((Dense_layer*)layer->connections[0]->layer)->num_neurons;
             break;
-        case 1 : 
+        case LAYER_CONV1D : 
             ((Flatten_layer*)layer->layer)->output_size = ((Conv1D_layer*)layer->connections[0]->layer)->output_dims[0]* ((Conv1D_layer*)layer->connections[0]->layer)->output_dims[1];
             break;
-        case 2: // Flatten layer
+        case LAYER_FLATTEN: // Flatten layer
             ((Flatten_layer*)layer->layer)->output_size = ((Flatten_layer*)layer->connections[0]->layer)->output_size;
             break;
         default:
@@ -345,10 +421,4 @@ void ON_compile_Flatten_layer(Otterchain* layer) {
     }
     return;
 }
-
-OtterTensor* ON_Flatten_layer_forward(Dense_layer* layer, OtterTensor* input, OtterTensor** zs, OtterTensor** activations) {
-    OtterTensor* prod = OT_Flatten(input);
-    return prod;
-}
-
 */

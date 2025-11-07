@@ -14,6 +14,26 @@
 
 
 
+typedef enum {
+    LAYER_DENSE,
+    LAYER_FLATTEN,
+    LAYER_CONV1D,
+    LAYER_CONV2D,
+    LAYER_CONV3D,
+    LAYER_MAXPOOLING,
+    LAYER_AVGPOOLING,
+    LAYER_DROPOUT,
+    LAYER_BATCHNORM,
+    LAYER_RECURRENT,
+    LAYER_LSTM,
+    LAYER_GRU,
+    LAYER_TRANSFORMER,
+    LAYER_ATTENTION,
+    LAYER_EMBEDDING
+} LayerType;
+
+extern const char* LAYER_TYPE[]; // Declare as extern, do not define here
+
 typedef struct Otternetwork Otternetwork;
 
 typedef struct Otterchain Otterchain;
@@ -21,7 +41,7 @@ typedef struct Otterchain Otterchain;
 struct Otterchain {
     Otterchain* next;
     void* layer;
-    int type; 
+    LayerType type; 
     
     Otterchain** connections_backward; 
     Otterchain** connections_forward; 
@@ -45,8 +65,6 @@ struct Otterchain {
     int idx_output;
     int idx_input; // Index of the input layer in the network
 };
-
-extern const char* LAYER_TYPE[]; // Declare as extern, do not define here
 
 //////////////////////////////////////////////////////////////////////
 
@@ -92,7 +110,6 @@ void free_Conv1D_layer(Conv1D_layer* layer);
 
 typedef struct Flatten_layer {
     int output_size;
-    int type;
 } Flatten_layer;
 /*
 Flatten_layer* ON_Flatten_layer(int neurons, char* activation_function);

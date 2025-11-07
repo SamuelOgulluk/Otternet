@@ -25,14 +25,32 @@ void compute_strides(OtterTensor *t) {
 
 void set_dims(OtterTensor* t, int* dimensions, int rank) {
     t->rank = rank;
-    t->dims = malloc(rank * sizeof(int));
-    t->strides = malloc(rank * sizeof(int));
     t->size = 1;
+    if (rank == 0) {
+        t->dims = NULL;
+        t->strides = NULL;
+    } else {
+        t->dims = malloc(rank * sizeof(int));
+        if (t->dims == NULL) {
+            fprintf(stderr, "Failed to allocate memory for tensor dimensions\n");
+            exit(EXIT_FAILURE);
+        }
+        t->strides = malloc(rank * sizeof(int));
+        if (t->strides == NULL) {
+            fprintf(stderr, "Failed to allocate memory for tensor strides\n");
+            free(t->dims); // Clean up previous allocation
+            exit(EXIT_FAILURE);
+        }
+    }
+
     for (int i = 0; i < t->rank; i++) {
         t->dims[i] = dimensions[i];
         t->size *= dimensions[i];
     }
-    compute_strides(t);
+    
+    if (rank > 0) {
+        compute_strides(t);
+    }
 }
 
 void set(OtterTensor *t, int* index, float value) {
@@ -77,6 +95,10 @@ void free_ottertensor_list(OtterTensor** tensors, int count) {
 
 OtterDataset* Init_dataset(OtterTensor*** data,int num_input, int size_dataset){
     OtterDataset* dataset= malloc(sizeof(OtterDataset));
+    if (dataset == NULL) {
+        fprintf(stderr, "Failed to allocate memory for dataset\n");
+        exit(EXIT_FAILURE);
+    }
     dataset->size[0] = size_dataset;
     dataset->size[1] = num_input;
     

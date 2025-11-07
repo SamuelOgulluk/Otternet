@@ -95,13 +95,13 @@ void ON_compile_otternetwork(Otternetwork* network, char* optimizer, char* error
             current_layer->connections_backward[i]->num_connections_forward++;
         }
         switch(current_layer->type){
-            case 0: // Dense layer
+            case LAYER_DENSE: // Dense layer
                 ON_compile_Dense_layer(current_layer);
                 break;
-            case 1: // Conv1D layer
+            case LAYER_CONV1D: // Conv1D layer
                 //ON_compile_Conv1D_layer(current_layer);
                 break;
-            case 2: // Flatten layer
+            case LAYER_FLATTEN: // Flatten layer
                 //ON_compile_Flatten_layer(current_layer);
                 break;
             default:
@@ -161,7 +161,16 @@ Otterchain** calculate_distances_ordered(Otternetwork* net) {
 
     // 1) Récupérer tous les nœuds dans un tableau
     Otterchain** nodes    = calloc(n, sizeof *nodes);
+    if (nodes == NULL) {
+        fprintf(stderr, "Failed to allocate memory for nodes\n");
+        exit(EXIT_FAILURE);
+    }
     int*        in_degree = calloc(n, sizeof *in_degree);
+    if (in_degree == NULL) {
+        fprintf(stderr, "Failed to allocate memory for in_degree\n");
+        free(nodes);
+        exit(EXIT_FAILURE);
+    }
     for (int i = 0; i < n; i++) {
         nodes[i] = (i == 0
             ? net->layers
@@ -184,6 +193,12 @@ Otterchain** calculate_distances_ordered(Otternetwork* net) {
 
     // 3) Préparer la file (résultat servira aussi de file)
     Otterchain** result = malloc(n * sizeof *result);
+    if (result == NULL) {
+        fprintf(stderr, "Failed to allocate memory for result\n");
+        free(nodes);
+        free(in_degree);
+        exit(EXIT_FAILURE);
+    }
     int head = 0, tail = 0;
     // Enfiler les couches sans prédécesseur
     for (int i = 0; i < n; i++) {
@@ -230,7 +245,7 @@ OtterTensor** ON_feed_forward(Otternetwork* network, OtterTensor** input, int gr
 
     for (int i = 0; i < network->num_layers; i++) {
         switch (network->order[i]->type) {
-            case 0:
+            case LAYER_DENSE:
                 ON_Dense_layer_forward(network, network->order[i]);
                 break;
         
@@ -241,6 +256,10 @@ OtterTensor** ON_feed_forward(Otternetwork* network, OtterTensor** input, int gr
         }
     }
     OtterTensor** output = calloc(network->num_end_of_line, sizeof(OtterTensor*));
+    if (output == NULL) {
+        fprintf(stderr, "Failed to allocate memory for output tensors\n");
+        exit(EXIT_FAILURE);
+    }
     for (int i = 0; i < network->num_end_of_line; i++) {
         free_malloc_tensor(&network->output[i]);
 
@@ -332,7 +351,7 @@ void ON_reset_network(Otternetwork* network) {
     if (!network) return;
     for(int i=0;i<network->num_layers;i++){
         switch (network->order[i]->type) {
-            case 0:
+            case LAYER_DENSE:
                 ON_reset_layer(network->order[i]);
                 break;
             default:
@@ -361,7 +380,7 @@ void free_otternetwork(Otternetwork* network) {
 
     for (int i = 0; i < network->num_layers; i++) {
         switch (network->order[i]->type) {
-            case 0:
+            case LAYER_DENSE:
                 ON_free_layer(network->order[i]);
                 
                 break;
@@ -446,11 +465,11 @@ void free_otterchain(Otterchain* chain) {
     if (!chain) return;
     
     if (chain->layer) {
-        if (chain->type == 0) {
+        if (chain->type == LAYER_DENSE) {
             ON_free_Dense_layer((Dense_layer*)chain->layer);    
-        } else if (chain->type == 1) {
+        } else if (chain->type == LAYER_CONV1D) {
             // free_Conv1D_layer((Conv1D_layer*)chain->layer);
-        } else if (chain->type == 2) {
+        } else if (chain->type == LAYER_FLATTEN) {
             // free_Flatten_layer((Flatten_layer*)chain->layer);
         } else {
             fprintf(stderr, "Unknown layer type for freeing.\n");
@@ -487,13 +506,15 @@ void free_otterchain(Otterchain* chain) {
 
 
     free_malloc_tensor(&chain->local_errors);
-    if(chain->num_connections_backward!=0) {
-        free_ottertensor_list(chain->input, chain->num_connections_backward);
-    }
-    else {
-        free_malloc_tensor(&chain->input[0]); 
-        free(chain->input);
-        chain->input = NULL;
+    if(chain->input) {
+        if(chain->num_connections_backward!=0) {
+            free_ottertensor_list(chain->input, chain->num_connections_backward);
+        }
+        else {
+            free_malloc_tensor(&chain->input[0]); 
+            free(chain->input);
+            chain->input = NULL;
+        }
     }
     free_malloc_tensor(&chain->post_activations);
 
