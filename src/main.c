@@ -291,7 +291,7 @@ OtterDataset** create_toy_dataset(int full_size) {
         x->data[1] = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
 
         OtterTensor* y = OT_zeros(target_dims, 2);
-        y->data[0] = sinf(x->data[0] * M_PI) + cosf(x->data[1] * M_PI); // toujours borné [-2,2]
+        y->data[0] = sinf(x->data[0] * 3.14) + cosf(x->data[1] * 3.12); // toujours borné [-2,2]
 
         inputs[i][0] = x;
         labels[i][0] = y;
@@ -325,7 +325,7 @@ Otternetwork* create_toy_net() {
     ON_add_layer(net, dense_2);
     ON_add_layer(net, dense_3);
     //float params[3]={0.9,0.999,1e-8};
-    ON_compile_otternetwork(net, "SGDM", "MSE", 0.000001f, NULL); // lr réduit
+    ON_compile_otternetwork(net, "Adam", "MSE", 0.001f, NULL); // lr ajusté
     return net;
 }
 
@@ -358,10 +358,9 @@ void test_toy_training() {
 
 
 
-
 int main() {
     //Otternetwork* net = create_net();
-
+    OTC_init();
 
     //test_ff(net);
     test_toy_training();

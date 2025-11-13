@@ -131,11 +131,18 @@ void ON_compile_Dense_layer(Otterchain* current_chain) { // faut gérer les conn
 
     int dims_w[2] = {((Dense_layer*)current_chain->layer)->num_neurons, input_dims};
     int dims_b[2] = {((Dense_layer*)current_chain->layer)->num_neurons, 1};
+    
+    // He initialization for weights
+    float he_scale = sqrtf(2.0f / input_dims);
     current_chain->weights[0] = OT_random_uniform(dims_w, 2, -1.0f, 1.0f);
-    current_chain->biases[0] = OT_random_uniform(dims_b, 2, -1.0f, 1.0f);
+    OT_ref_scalar_multiply(current_chain->weights[0], he_scale);
+
+    // Initialize biases to zero
+    current_chain->biases[0] = OT_zeros(dims_b, 2);
 
     if(!current_chain->input_dims){
         current_chain->input_dims = malloc(2 * sizeof(int));
+        if (current_chain->input_dims == NULL) {
         if (current_chain->input_dims == NULL) {
             fprintf(stderr, "Failed to allocate memory for input dimensions\n");
             exit(EXIT_FAILURE);
@@ -143,7 +150,9 @@ void ON_compile_Dense_layer(Otterchain* current_chain) { // faut gérer les conn
         current_chain->input_dims[0] = input_dims;
         current_chain->input_dims[1] = 1;
         
+        }
     }
+
     current_chain->output_dims = malloc(2 * sizeof(int));
     if (current_chain->output_dims == NULL) {
         fprintf(stderr, "Failed to allocate memory for output dimensions\n");
