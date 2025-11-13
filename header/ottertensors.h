@@ -4,14 +4,27 @@
 #include <stdlib.h>
 
 
+typedef enum {
+    DEVICE_CPU,
+    DEVICE_CUDA
+} OtterDevice;
+
 typedef struct {
-    float* data;
-    int rank;
-    int* dims;     // Sizes of each dimension
+    float* data; // Pointeur HôTE (CPU)
+    float* gpu_data; // Pointeur APPAREIL (GPU)
+    
+    OtterDevice device; // Indique où se trouvent les données "officielles"
+
+    int* dims;
     int* strides;  // Strides for indexing
+    int rank;
     int size;
     int freed;
+
 } OtterTensor;
+
+
+
 
 typedef struct {
     OtterTensor*** dataset;
