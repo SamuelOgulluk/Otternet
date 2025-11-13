@@ -34,6 +34,11 @@ void print_tensor(OtterTensor* t,int significant_digits) {
     }
     printf(")\n");
     */
+
+    if (t->device == DEVICE_CUDA) {
+        OT_to_cpu(t);
+    }
+
     printf("Ottertensor(");
     if (t->rank ==0) {
         printf("%.*f",significant_digits,t->data[0]);
