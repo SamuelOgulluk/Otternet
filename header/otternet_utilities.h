@@ -5,7 +5,9 @@
 #include "../header/ottertensors_operations.h"
 #include "../header/ottertensors_random.h"
 #include "../header/ottermath.h"
+#include "../header/OtterCuda.h"
 #include "../header/OtterLayers.h"
+#include "../header/OtterCuda.h"
 
 
 

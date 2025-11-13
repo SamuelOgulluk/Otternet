@@ -5,6 +5,6 @@
 #include "../ottertensors.h"
 #include "../ottertensors_utilities.h"
 
-
+void OT_ref_reset(OtterTensor* t);
 
 #endif // OTTER_RESET_H
