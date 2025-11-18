@@ -61,6 +61,13 @@ void set(OtterTensor *t, int* index, float value) {
 
 void free_tensor(OtterTensor* tensor) {
     if (!tensor) return;
+    if (tensor->gpu_data) { 
+        #ifdef USE_CUDA
+        cudaFree(tensor->gpu_data); 
+        tensor->gpu_data = NULL; 
+        #endif
+    }
+    
     if (tensor->data) { free(tensor->data); tensor->data = NULL; }
     if (tensor->dims) { free(tensor->dims); tensor->dims = NULL; }
     if (tensor->strides) { free(tensor->strides); tensor->strides = NULL; }

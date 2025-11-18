@@ -7,7 +7,7 @@
 #include "../header/ottermath.h"
 #include "../header/OtterCuda.h"
 #include "../header/OtterLayers.h"
-#include "../header/OtterCuda.h"
+
 
 
 
